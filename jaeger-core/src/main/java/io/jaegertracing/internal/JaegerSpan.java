@@ -99,6 +99,7 @@ public class JaegerSpan implements Span {
 
   @Override
   public JaegerSpan setOperationName(String operationName) {
+	System.out.println("333 setting opertation name from old to new   --> " + this.operationName + "  --> "+ operationName);  
     synchronized (this) {
       this.operationName = operationName;
     }
