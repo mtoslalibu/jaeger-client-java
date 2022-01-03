@@ -27,6 +27,7 @@ import io.jaegertracing.internal.metrics.NoopMetricsFactory;
 import io.jaegertracing.internal.propagation.BinaryCodec;
 import io.jaegertracing.internal.propagation.TextMapCodec;
 import io.jaegertracing.internal.reporters.RemoteReporter;
+import io.jaegertracing.internal.samplers.AstraeaSampler;
 import io.jaegertracing.internal.samplers.RemoteControlledSampler;
 import io.jaegertracing.internal.samplers.SamplingStatus;
 import io.jaegertracing.internal.utils.Utils;
@@ -171,7 +172,16 @@ public class JaegerTracer implements Tracer, Closeable {
   }
 
   void reportSpan(JaegerSpan span) {
-    reporter.report(span);
+    System.out.println("Reporter 6666");
+    // System.out.println(span);
+
+    // System.out.println(span.getOperationName());
+    // System.out.println(span.getOperationName() + " " + span.getServiceName());
+    if (((AstraeaSampler)sampler).sampleReport(span) == true){
+      reporter.report(span);
+    }
+    // span.getReferences().get(0).
+    
     metrics.spansFinished.inc(1);
   }
 
@@ -196,6 +206,7 @@ public class JaegerTracer implements Tracer, Closeable {
 
   @Override
   public JaegerTracer.SpanBuilder buildSpan(String operationName) {
+    System.out.println("44444 Building hte span: " + operationName);
     return objectFactory.createSpanBuilder(this, operationName);
   }
 
@@ -317,6 +328,7 @@ public class JaegerTracer implements Tracer, Closeable {
     }
 
     private JaegerSpanContext createNewContext() {
+      System.out.println("1212121Creating new context");
       String debugId = getDebugId();
       long spanId = Utils.uniqueId();
       long traceIdLow = spanId;
@@ -370,6 +382,7 @@ public class JaegerTracer implements Tracer, Closeable {
     }
 
     private JaegerSpanContext createChildContext() {
+      System.out.println("1212121Creating child context");
       JaegerSpanContext preferredReference = preferredReference();
 
       if (isRpcServer()) {
@@ -392,6 +405,33 @@ public class JaegerTracer implements Tracer, Closeable {
           preferredReference.getSpanId(),
           // should we do OR across passed references?
           preferredReference.getFlags(),
+          getBaggage(),
+          null);
+    }
+
+    private JaegerSpanContext createChildContextAstraea(Long spanId, Long parentId) {
+      JaegerSpanContext preferredReference = preferredReference();
+
+      if (isRpcServer()) {
+        if (isSampled()) {
+          metrics.tracesJoinedSampled.inc(1);
+        } else {
+          metrics.tracesJoinedNotSampled.inc(1);
+        }
+
+        // Zipkin server compatibility
+        if (zipkinSharedRpcSpan) {
+          return preferredReference;
+        }
+      }
+
+      return getObjectFactory().createSpanContext(
+          preferredReference.getTraceIdHigh(),
+          preferredReference.getTraceIdLow(),
+          spanId,
+          parentId,
+          // should we do OR across passed references?
+          (byte)0, // panat's flag from python
           getBaggage(),
           null);
     }
@@ -435,17 +475,83 @@ public class JaegerTracer implements Tracer, Closeable {
     @Override
     public JaegerSpan start() {
       JaegerSpanContext context;
+      boolean astraea_sampled = true;
 
+      System.out.println("1111 The intended span: "+ serviceName + " " + operationName);
+      
       // Check if active span should be established as CHILD_OF relationship
+      // child span in the same service
       if (references.isEmpty() && !ignoreActiveSpan && null != scopeManager.activeSpan()) {
+        System.out.println("**9999999 Check here1");
         asChildOf(scopeManager.activeSpan());
       }
 
+      // root span -- AFAIK
       if (references.isEmpty() || !references.get(0).getSpanContext().hasTrace()) {
+        System.out.println("**777777 Check here2");
         context = createNewContext();
       } else {
-        context = createChildContext();
+        System.out.println("222 Parent" + references.get(0));
+        // System.out.println("Sampler now: " + sampler);
+
+        // context = createChildContext();
+         
+        //check if span enabled
+        SamplingStatus samplingStatus = sampler.sample(operationName, 1); // span id is null for now
+        if (samplingStatus.isSampled()) {
+          // flags |= JaegerSpanContext.flagSampled;
+          // System.out.println("Sampled");
+          context = createChildContext();
+          System.out.println("------- Context now (spanId, parentId): " + context.getSpanId() +  "," + context.getParentId() + " sampled");
+        }
+        // Not sampled
+        else{
+            context = createChildContextAstraea(references.get(0).getSpanContext().getSpanId(), references.get(0).getSpanContext().getParentId());
+            // System.out.println(context + " not sampled");
+            System.out.println("++++++++ Context now (spanId, parentId): " + context.getSpanId() +  "," + context.getParentId() + " not sampled and ops: " + operationName);
+
+          JaegerSpan jaegerSpan = getObjectFactory().createSpan(
+            JaegerTracer.this,
+            operationName,
+            context,
+            clock.currentTimeMicros(),
+            clock.currentNanoTicks(),
+            false,
+            tags,
+            references);
+            System.out.println("jaeger span mertsss: " + jaegerSpan);
+              
+          return jaegerSpan;
+            }
       }
+
+      // if(!astraea_sampled){
+      //   System.out.println("Debugger");
+      //   System.out.println(scopeManager.activeSpan());
+      //   // System.out.println(scopeManager.activeSpan().context());
+      //   // System.out.println(scopeManager.activeSpan().context().toSpanId());
+
+      //   System.out.println("Debugger");
+      //   // references
+
+      //   // JaegerSpan jaegerSpan = getObjectFactory().createSpan(
+      //   //   JaegerTracer.this,
+      //   //   "mert",
+      //   //   // (JaegerSpanContext)scopeManager.activeSpan().context(),
+      //   //   references.get(0).getSpanContext(),
+      //   //   0,
+      //   //   0,
+      //   //   false,
+      //   //   tags,
+      //   //   references);
+
+      //   //   return jaegerSpan;
+      //   // return (JaegerSpan)scopeManager.activeSpan();
+      // }
+      // else{
+      //   context = createChildContext();
+      // }
+
 
       long startTimeNanoTicks = 0;
       boolean computeDurationViaNanoTicks = false;
@@ -467,22 +573,32 @@ public class JaegerTracer implements Tracer, Closeable {
               computeDurationViaNanoTicks,
               tags,
               references);
+
+      
       if (context.isSampled()) {
         metrics.spansStartedSampled.inc(1);
       } else {
         metrics.spansStartedNotSampled.inc(1);
       }
+      System.out.println("8888888888888 GELMEMELI");
       return jaegerSpan;
     }
 
     @Deprecated
     // @Override keep compatibility with 0.32.0
     public Scope startActive(final boolean finishSpanOnClose) {
+      System.out.println("8888888888888 Activeler burada");
       if (!finishSpanOnClose) {
         return scopeManager.activate(start());
       }
       return new Scope() {
         Span span = start();
+
+        
+        // Scope wrapped;
+        // if(span == null){
+        //   wrapped = scopeManager.active();
+        // }
         Scope wrapped = scopeManager.activate(span);
         @Override
         public void close() {
@@ -506,6 +622,7 @@ public class JaegerTracer implements Tracer, Closeable {
     @Deprecated
     // @Override keep compatibility with 0.32.0
     public Span startManual() {
+      System.out.println("777777777777 manuel burada");
       return start();
     }
 

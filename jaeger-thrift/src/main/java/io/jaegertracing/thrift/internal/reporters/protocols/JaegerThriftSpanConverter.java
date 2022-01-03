@@ -42,7 +42,7 @@ public class JaegerThriftSpanConverter {
     List<SpanRef> references = oneChildOfParent
         ? Collections.<SpanRef>emptyList()
         : buildReferences(jaegerSpan.getReferences());
-
+        System.out.println("654654654 thrift burada");
     return new io.jaegertracing.thriftjava.Span(
         context.getTraceIdLow(),
         context.getTraceIdHigh(),

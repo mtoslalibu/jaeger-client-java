@@ -83,6 +83,7 @@ public class EndToEndBehavior {
           builder.withTag(kv.getKey(), kv.getValue());
         }
       }
+      System.out.println("3333333 generate burada");
       Span span = builder.start();
       span.finish();
     }

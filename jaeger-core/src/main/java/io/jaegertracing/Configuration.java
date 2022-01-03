@@ -25,6 +25,7 @@ import io.jaegertracing.internal.propagation.TextMapCodec;
 import io.jaegertracing.internal.reporters.CompositeReporter;
 import io.jaegertracing.internal.reporters.LoggingReporter;
 import io.jaegertracing.internal.reporters.RemoteReporter;
+import io.jaegertracing.internal.samplers.AstraeaSampler;
 import io.jaegertracing.internal.samplers.ConstSampler;
 import io.jaegertracing.internal.samplers.HttpSamplingManager;
 import io.jaegertracing.internal.samplers.ProbabilisticSampler;
@@ -380,6 +381,23 @@ public class Configuration {
 
       if (samplerType.equals(RateLimitingSampler.TYPE)) {
         return new RateLimitingSampler(samplerParam.intValue());
+      }
+
+      // if (samplerType.equals(AstraeaSampler.TYPE)) {
+      //   return new AstraeaSampler(samplerParam.intValue());
+      // }
+
+      System.out.println("** astraea geliyor type ne");
+      System.out.println(samplerType);
+      
+
+      if (samplerType.equals(AstraeaSampler.TYPE)) {
+        System.out.println("** astraea geliyor1111");
+        return new AstraeaSampler.Builder(serviceName)
+            // .withSamplingManager(new HttpSamplingManager(hostPort))
+            // .withInitialSampler(new ProbabilisticSampler(samplerParam.doubleValue()))
+            // .withMetrics(metrics)
+            .build();
       }
 
       if (samplerType.equals(RemoteControlledSampler.TYPE)) {
