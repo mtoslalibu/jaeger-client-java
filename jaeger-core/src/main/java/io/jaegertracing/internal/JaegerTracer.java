@@ -177,7 +177,7 @@ public class JaegerTracer implements Tracer, Closeable {
 
   @Override
   public JaegerTracer.SpanBuilder buildSpan(String operationName) {
-	  System.out.println("44444 Building hte span: " + operationName);
+	  // System.out.println("44444 Building hte span: " + operationName);
     return objectFactory.createSpanBuilder(this, operationName);
   }
 
@@ -405,7 +405,7 @@ public class JaegerTracer implements Tracer, Closeable {
     public JaegerSpan start() {
       JaegerSpanContext context;
       
-            System.out.println("1111 The intended span: "+ serviceName + " " + operationName);
+            // System.out.println("1111 The intended span: "+ serviceName + " " + operationName);
 
       // Check if active span should be established as CHILD_OF relationship
       if (references.isEmpty() && !ignoreActiveSpan && null != scopeManager.active()) {
@@ -419,7 +419,7 @@ public class JaegerTracer implements Tracer, Closeable {
         context = createNewContext(debugId);
       } else {
         context = createChildContext();
-	System.out.println("++++++++ Context now (spanId, parentId): " + context.getSpanId() +  "," + context.getParentId() + " not sampled and ops: " + operationName);
+	// System.out.println("++++++++ Context now (spanId, parentId): " + context.getSpanId() +  "," + context.getParentId() + " not sampled and ops: " + operationName);
       }
       //System.out.println("++++++++ Context now (spanId, parentId): " + context.getSpanId() +  "," + context.getParentId() + " not sampled and ops: " + operationName);
 
